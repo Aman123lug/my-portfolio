@@ -8,7 +8,7 @@ export default function Hero() {
         <div className="hero-content">
           <p className="hero-greeting">Hello, I'm</p>
           <h1 className="hero-name">Aman Kumar</h1>
-          <h2 className="hero-title">Data Scientist & Open Source Contributor</h2>
+          <h2 className="hero-title">Data Scientist & AI/ML Freelancer</h2>
           <p className="hero-description">
             Building enterprise AI solutions with Gen-AI, LLM, RAG, 
             and MLOps.

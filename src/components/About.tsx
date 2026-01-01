@@ -16,7 +16,7 @@ export default function About() {
             </p>
             <p>
               Currently working as a Data Scientist at Ghaia.ai, where I architect enterprise 
-              multi-agent systems and production-grade RAG architectures. And Worked on POCs of Qatar Government,  I'm passionate 
+              solutions of multi-agent systems and production-grade RAG architectures. AI/ML Freelancer with Multiple startups and Worked on POCs of Qatar Government,  I'm passionate 
               about building AI solutions that solve real-world problems at scale.
             </p>
             <p>
