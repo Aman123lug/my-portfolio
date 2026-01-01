@@ -1,0 +1,22 @@
+/* App-level styles */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+  padding-top: 70px; /* Account for fixed navbar */
+}
+
+/* Page transitions */
+section {
+  min-height: calc(100vh - 70px);
+}
+
+/* Selection styling */
+::selection {
+  background-color: var(--color-accent);
+  color: white;
+}
