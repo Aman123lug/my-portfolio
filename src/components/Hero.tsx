@@ -47,11 +47,25 @@ export default function Hero() {
         </div>
         <div className="hero-image">
           <div className="hero-image-wrapper">
-            {/* Replace with your image */}
-            <div className="hero-placeholder">
-              <span>Your Photo</span>
-            </div>
+            <img 
+              src="/my-portfolio/images/blog/aman_kumar.png" 
+              alt="Aman Kumar" 
+              className="hero-profile-img"
+            />
           </div>
+        </div>
+      </div>
+
+      {/* Scroll Indicator */}
+      <div className="scroll-indicator">
+        <span className="scroll-text">Explore My Journey</span>
+        <div className="scroll-mouse">
+          <div className="scroll-wheel"></div>
+        </div>
+        <div className="scroll-arrows">
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
       </div>
     </section>
