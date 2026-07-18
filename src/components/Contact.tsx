@@ -1,19 +1,168 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './Contact.css';
 
-export default function Contact() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    message: '',
-  });
+/**
+ * To deliver messages silently in the background, create a free form at
+ * https://formspree.io (it emails you every submission) and put its ID here,
+ * e.g. 'xkgwqyzr'. While empty, sending falls back to opening the visitor's
+ * email client with everything pre-filled — still fully functional.
+ */
+const FORMSPREE_ID = 'mbdnokky';
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    // Handle form submission - integrate with your preferred service
-    console.log('Form submitted:', formData);
-    alert('Thank you for your message! I\'ll get back to you soon.');
-    setFormData({ name: '', email: '', message: '' });
+const EMAIL = 'ak06465676@gmail.com';
+
+type RespLine = { id: number; kind: 'ok' | 'err' | 'dim' | 'out' | 'accent'; text: string };
+
+interface Channel {
+  label: string;
+  href: string;
+  latency: number;
+}
+
+const CHANNELS: Channel[] = [
+  { label: 'email', href: `mailto:${EMAIL}`, latency: 23 },
+  { label: 'linkedin', href: 'https://www.linkedin.com/in/aman-kumar-5bb609228/', latency: 41 },
+  { label: 'github', href: 'https://github.com/Aman123lug', latency: 37 },
+  { label: 'blog', href: 'https://amanblog.hashnode.dev/', latency: 58 },
+];
+
+function useDelhiClock() {
+  const [time, setTime] = useState('');
+  useEffect(() => {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const tick = () => setTime(fmt.format(new Date()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return time;
+}
+
+export default function Contact() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [resp, setResp] = useState<RespLine[]>([]);
+  const [pinged, setPinged] = useState(0);
+
+  const nextId = useRef(0);
+  const alive = useRef(true);
+  const clock = useDelhiClock();
+
+  useEffect(() => {
+    alive.current = true;
+    // stagger the channel "health checks"
+    const timers = CHANNELS.map((_, i) =>
+      setTimeout(() => setPinged((p) => Math.max(p, i + 1)), 500 + i * 350)
+    );
+    return () => {
+      alive.current = false;
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+  const pushResp = (kind: RespLine['kind'], text: string) =>
+    setResp((prev) => [...prev, { id: nextId.current++, kind, text }]);
+
+  const streamResp = async (rows: [RespLine['kind'], string][], delay = 70) => {
+    for (const [kind, text] of rows) {
+      if (!alive.current) return;
+      pushResp(kind, text);
+      await sleep(delay);
+    }
+  };
+
+  const handleSend = async () => {
+    if (sending) return;
+    setResp([]);
+    setSending(true);
+
+    const latency = Math.floor(90 + Math.random() * 150);
+    await sleep(300);
+
+    // API-style validation errors
+    const errors: string[] = [];
+    if (!name.trim()) errors.push('"name": "field required"');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) errors.push('"email": "invalid email address"');
+    if (!message.trim()) errors.push('"message": "field required"');
+
+    if (errors.length) {
+      await streamResp([
+        ['err', `HTTP/2 422 Unprocessable Entity · ${latency}ms`],
+        ['dim', 'content-type: application/json'],
+        ['out', '{'],
+        ['out', '  "detail": {'],
+        ...errors.map((e, i) => ['err', `    ${e}${i < errors.length - 1 ? ',' : ''}`] as ['err', string]),
+        ['out', '  }'],
+        ['out', '}'],
+      ]);
+      setSending(false);
+      return;
+    }
+
+    let delivered = false;
+    let transport = 'mailto';
+
+    if (FORMSPREE_ID) {
+      try {
+        const r = await fetch(`https://formspree.io/f/${FORMSPREE_ID}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ name, email, message }),
+        });
+        delivered = r.ok;
+        transport = 'formspree';
+      } catch {
+        delivered = false;
+      }
+      if (!delivered) {
+        await streamResp([
+          ['err', `HTTP/2 502 Bad Gateway · ${latency}ms`],
+          ['out', '{'],
+          ['err', '  "error": "delivery failed",'],
+          ['out', `  "fallback": "${EMAIL}"`],
+          ['out', '}'],
+        ]);
+        setSending(false);
+        return;
+      }
+    } else {
+      // no backend configured — open the visitor's mail client pre-filled
+      const body = encodeURIComponent(`${message}\n\n— ${name} (${email})`);
+      window.location.href = `mailto:${EMAIL}?subject=${encodeURIComponent(
+        `Portfolio contact from ${name}`
+      )}&body=${body}`;
+      delivered = true;
+    }
+
+    const msgId = `msg_${Math.random().toString(36).slice(2, 10)}`;
+    await streamResp([
+      ['ok', `HTTP/2 202 Accepted · ${latency}ms`],
+      ['dim', 'content-type: application/json'],
+      ['dim', `x-message-id: ${msgId}`],
+      ['out', '{'],
+      ['out', '  "status": "queued",'],
+      ['out', `  "transport": "${transport}",`],
+      ['out', `  "to": "${EMAIL}",`],
+      ['out', '  "reply_eta": "< 24h",'],
+      ['accent', '  "note": "thanks for reaching out — talk soon 🤝"'],
+      ['out', '}'],
+    ]);
+
+    if (delivered && transport === 'formspree') {
+      setName('');
+      setEmail('');
+      setMessage('');
+    }
+    setSending(false);
   };
 
   return (
@@ -21,98 +170,117 @@ export default function Contact() {
       <div className="contact-container">
         <div className="section-header">
           <span className="section-tag">Contact</span>
-          <h2 className="section-title">Get In Touch</h2>
+          <h2 className="section-title">Send a Request</h2>
           <p className="section-subtitle">
-            Have a question or want to work together? Feel free to reach out!
+            Direct line to my inbox — REST-style. No auth required.
           </p>
         </div>
 
-        <div className="contact-content">
-          <div className="contact-info">
-            <div className="contact-item">
-              <div className="contact-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
-              </div>
-              <div>
-                <h4>Email</h4>
-                <a href="mailto:ak06465676@gmail.com">ak06465676@gmail.com</a>
-              </div>
-            </div>
+        {/* ===== status strip ===== */}
+        <div className="status-strip">
+          <div className="status-item">
+            <span className="status-dot"></span>
+            <span className="status-strong">ONLINE</span>
+            <span className="status-dim">median response &lt; 24h</span>
+          </div>
+          <div className="status-item">
+            <span className="status-dim">local time (Delhi)</span>
+            <span className="status-strong status-clock">{clock} IST</span>
+          </div>
+          <div className="status-channels">
+            {CHANNELS.map((c, i) => (
+              <a
+                key={c.label}
+                href={c.href}
+                target={c.href.startsWith('http') ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                className="status-channel"
+              >
+                <span className="channel-label">{c.label}</span>
+                {pinged > i ? (
+                  <span className="channel-ok">✔ 200 OK · {c.latency}ms</span>
+                ) : (
+                  <span className="channel-wait">pinging…</span>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
 
-            <div className="contact-item">
-              <div className="contact-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                  <circle cx="12" cy="10" r="3"/>
-                </svg>
-              </div>
-              <div>
-                <h4>Location</h4>
-                <p>Delhi, India</p>
-              </div>
+        {/* ===== API playground ===== */}
+        <div className="api-playground">
+          {/* request panel */}
+          <div className="api-panel">
+            <div className="api-panel-header">
+              <span className="method-badge">POST</span>
+              <span className="api-url">https://api.amankumar.dev/v1/contact</span>
             </div>
-
-            <div className="contact-item">
-              <div className="contact-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                </svg>
+            <div className="api-body">
+              <div className="json-line json-brace">{'{'}</div>
+              <div className="json-line">
+                <span className="json-key">  "name"</span>
+                <span className="json-colon">: "</span>
+                <input
+                  className="json-input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="your name"
+                  spellCheck={false}
+                />
+                <span className="json-colon">",</span>
               </div>
-              <div>
-                <h4>LinkedIn</h4>
-                <a href="https://www.linkedin.com/in/aman-kumar-5bb609228/" target="_blank" rel="noopener noreferrer">Connect with me</a>
+              <div className="json-line">
+                <span className="json-key">  "email"</span>
+                <span className="json-colon">: "</span>
+                <input
+                  className="json-input"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  spellCheck={false}
+                />
+                <span className="json-colon">",</span>
               </div>
+              <div className="json-line json-line-textarea">
+                <span className="json-key">  "message"</span>
+                <span className="json-colon">: "</span>
+                <textarea
+                  className="json-textarea"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="let's build something — a RAG system, an agent platform, anything"
+                  rows={4}
+                  spellCheck={false}
+                />
+                <span className="json-colon">"</span>
+              </div>
+              <div className="json-line json-brace">{'}'}</div>
+            </div>
+            <div className="api-actions">
+              <button className="btn btn-primary api-send" onClick={handleSend} disabled={sending}>
+                {sending ? 'Sending…' : '▶ Send Request'}
+              </button>
             </div>
           </div>
 
-          <form className="contact-form" onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="name">Name</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Your name"
-                required
-              />
+          {/* response panel */}
+          <div className="api-panel api-panel-response">
+            <div className="api-panel-header">
+              <span className="response-title">Response</span>
+              {sending && <span className="response-spinner"></span>}
             </div>
-            <div className="form-group">
-              <label htmlFor="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="your.email@example.com"
-                required
-              />
+            <div className="api-body api-response-body">
+              {resp.length === 0 && !sending && (
+                <div className="resp-line resp-dim">// awaiting request…</div>
+              )}
+              {resp.map((l) => (
+                <div key={l.id} className={`resp-line resp-${l.kind}`}>
+                  {l.text}
+                </div>
+              ))}
             </div>
-            <div className="form-group">
-              <label htmlFor="message">Message</label>
-              <textarea
-                id="message"
-                name="message"
-                value={formData.message}
-                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                placeholder="Your message..."
-                rows={5}
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-primary btn-submit">
-              Send Message
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            </button>
-          </form>
+          </div>
         </div>
       </div>
     </section>

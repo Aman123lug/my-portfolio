@@ -1,22 +1,80 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import NeuralNetwork from './NeuralNetwork';
+import ScrambleText from './ScrambleText';
+import CountUp from './CountUp';
 import './Hero.css';
 
+const ROLES = [
+  'AI ENGINEER',
+  'DATA SCIENTIST',
+  'LLM & RAG BUILDER',
+  'MLOPS PRACTITIONER',
+];
+
+function useTrainingTicker() {
+  const [stats, setStats] = useState({ epoch: 1, loss: 0.4128, acc: 87.4 });
+
+  useEffect(() => {
+    const start = performance.now();
+    const id = setInterval(() => {
+      const t = (performance.now() - start) / 1000;
+      const jitter = (Math.random() - 0.5) * 0.004;
+      setStats({
+        epoch: Math.floor(t * 1.6) + 1,
+        loss: Math.max(0.0021, 0.42 * Math.exp(-t / 22) + 0.002 + jitter),
+        acc: Math.min(99.9, 99.9 - 12.5 * Math.exp(-t / 18) + (Math.random() - 0.5) * 0.08),
+      });
+    }, 120);
+    return () => clearInterval(id);
+  }, []);
+
+  return stats;
+}
+
 export default function Hero() {
+  const { epoch, loss, acc } = useTrainingTicker();
+
   return (
     <section id="home" className="hero">
+      <NeuralNetwork />
+      <div className="hero-vignette" aria-hidden="true"></div>
+
       <div className="hero-container">
         <div className="hero-content">
-          <p className="hero-greeting">Hello, I'm</p>
-          <h1 className="hero-name">Aman Kumar</h1>
-          <h2 className="hero-title">Data Scientist & AI/ML Freelancer</h2>
+          <div className="hero-hud">
+            <span className="hud-dot"></span>
+            <span className="hud-label">model: aman-v2</span>
+            <span className="hud-sep">|</span>
+            <span>epoch {String(epoch).padStart(3, '0')}</span>
+            <span className="hud-sep">|</span>
+            <span>loss {loss.toFixed(4)}</span>
+            <span className="hud-sep">|</span>
+            <span>acc {acc.toFixed(1)}%</span>
+          </div>
+
+          <p className="hero-greeting">// forward pass complete — output decoded:</p>
+
+          <h1 className="hero-name">
+            <ScrambleText phrases={['AMAN KUMAR']} startDelayMs={300} />
+          </h1>
+
+          <h2 className="hero-title">
+            <span className="hero-title-prompt">&gt;</span>{' '}
+            <ScrambleText phrases={ROLES} startDelayMs={1400} />
+            <span className="hero-caret" aria-hidden="true"></span>
+          </h2>
+
           <p className="hero-description">
-            Building enterprise AI solutions with Gen-AI, LLM, RAG, 
-            and MLOps.
+            Building enterprise AI at Ghaia.ai — multi-agent systems,
+            production RAG, and memory-first agent architectures.
           </p>
+
           <div className="hero-cta">
             <Link to="/contact" className="btn btn-primary">Get in Touch</Link>
             <Link to="/projects" className="btn btn-secondary">View Work</Link>
           </div>
+
           <div className="hero-social">
             <a href="https://www.linkedin.com/in/aman-kumar-5bb609228/" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="LinkedIn">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -44,14 +102,24 @@ export default function Hero() {
               </svg>
             </a>
           </div>
-        </div>
-        <div className="hero-image">
-          <div className="hero-image-wrapper">
-            <img 
-              src="/my-portfolio/images/blog/aman_kumar.png" 
-              alt="Aman Kumar" 
-              className="hero-profile-img"
-            />
+
+          <div className="hero-stats">
+            <div className="stat">
+              <span className="stat-value"><CountUp end={140} suffix="+" /></span>
+              <span className="stat-label">Releases Shipped</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value"><CountUp end={20} suffix="+" /></span>
+              <span className="stat-label">POCs for Clients & Govt</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value"><CountUp end={76} suffix="%" /></span>
+              <span className="stat-label">RAG Q&A Improvement</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value"><CountUp end={3} suffix="+" /></span>
+              <span className="stat-label">Years in AI/ML</span>
+            </div>
           </div>
         </div>
       </div>

@@ -60,3 +60,5 @@ coverage
 .vercel
 .netlify
 node_modules
+# generated blog assets (rebuilt from content/blog on every build)
+public/blog-images/

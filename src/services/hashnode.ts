@@ -1,9 +1,13 @@
-import { GraphQLClient, gql } from 'graphql-request';
-
-const HASHNODE_API = 'https://gql.hashnode.com';
-const HASHNODE_HOST = 'amanblog.hashnode.dev'; // Your Hashnode blog host
-
-const client = new GraphQLClient(HASHNODE_API);
+/**
+ * Blog data layer.
+ *
+ * Previously fetched from Hashnode's GraphQL API at runtime, but Hashnode
+ * moved that API behind a paid Pro plan (May 2026). Posts now come from the
+ * free RSS feed, fetched at build time by scripts/fetch-posts.mjs (runs on
+ * `npm run dev` and `npm run build`) and baked into src/data/posts.ts.
+ * The async signatures are kept so consumers didn't have to change.
+ */
+import { posts } from '../data/posts';
 
 export interface BlogPost {
   id: string;
@@ -22,102 +26,18 @@ export interface BlogPost {
     html: string;
     markdown: string;
   };
-}
-
-export interface HashnodeResponse {
-  publication: {
-    posts: {
-      edges: {
-        node: BlogPost;
-      }[];
-    };
-  };
-}
-
-export interface SinglePostResponse {
-  publication: {
-    post: BlogPost;
-  };
+  /** 'local' = markdown post from content/blog, 'hashnode' = from the RSS feed */
+  source?: 'hashnode' | 'local';
 }
 
 // Fetch all blog posts
 export async function getBlogPosts(first: number = 10): Promise<BlogPost[]> {
-  const query = gql`
-    query GetPosts($host: String!, $first: Int!) {
-      publication(host: $host) {
-        posts(first: $first) {
-          edges {
-            node {
-              id
-              title
-              brief
-              slug
-              publishedAt
-              readTimeInMinutes
-              coverImage {
-                url
-              }
-              tags {
-                name
-              }
-            }
-          }
-        }
-      }
-    }
-  `;
-
-  try {
-    const data = await client.request<HashnodeResponse>(query, {
-      host: HASHNODE_HOST,
-      first,
-    });
-
-    return data.publication.posts.edges.map((edge) => edge.node);
-  } catch (error) {
-    console.error('Error fetching blog posts:', error);
-    return [];
-  }
+  return posts.slice(0, first);
 }
 
 // Fetch a single blog post by slug
 export async function getBlogPost(slug: string): Promise<BlogPost | null> {
-  const query = gql`
-    query GetPost($host: String!, $slug: String!) {
-      publication(host: $host) {
-        post(slug: $slug) {
-          id
-          title
-          brief
-          slug
-          publishedAt
-          readTimeInMinutes
-          coverImage {
-            url
-          }
-          tags {
-            name
-          }
-          content {
-            html
-            markdown
-          }
-        }
-      }
-    }
-  `;
-
-  try {
-    const data = await client.request<SinglePostResponse>(query, {
-      host: HASHNODE_HOST,
-      slug,
-    });
-
-    return data.publication.post;
-  } catch (error) {
-    console.error('Error fetching blog post:', error);
-    return null;
-  }
+  return posts.find((p) => p.slug === slug) ?? null;
 }
 
 // Format date helper

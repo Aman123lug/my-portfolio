@@ -11,6 +11,15 @@ export default function BlogPostPage() {
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [darkRead, setDarkRead] = useState(
+    () => localStorage.getItem('reading-dark') === '1'
+  );
+
+  useEffect(() => {
+    localStorage.setItem('reading-dark', darkRead ? '1' : '0');
+  }, [darkRead]);
+
+  const pageClass = `blog-post-page${darkRead ? ' reading-dark' : ''}`;
 
   useEffect(() => {
     async function fetchPost() {
@@ -38,7 +47,7 @@ export default function BlogPostPage() {
     return (
       <>
         <Navbar />
-        <main className="blog-post-page">
+        <main className={pageClass}>
           <div className="blog-post-container">
             <div className="blog-post-loading">
               <div className="loading-spinner"></div>
@@ -55,7 +64,7 @@ export default function BlogPostPage() {
     return (
       <>
         <Navbar />
-        <main className="blog-post-page">
+        <main className={pageClass}>
           <div className="blog-post-container">
             <div className="blog-post-error">
               <h1>Article Not Found</h1>
@@ -72,7 +81,14 @@ export default function BlogPostPage() {
   return (
     <>
       <Navbar />
-      <main className="blog-post-page">
+      <main className={pageClass}>
+        <button
+          className="reading-toggle"
+          onClick={() => setDarkRead((d) => !d)}
+          aria-label={darkRead ? 'Switch to light reading' : 'Switch to dark reading'}
+        >
+          {darkRead ? '☀ light' : '☾ reading mode'}
+        </button>
         <article className="blog-post-container">
           <header className="blog-post-header">
             <Link to="/blog" className="back-link">
@@ -106,25 +122,29 @@ export default function BlogPostPage() {
 
           <footer className="blog-post-footer">
             <div className="blog-post-actions">
-              <a 
-                href={`https://amanblog.hashnode.dev/${post.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-secondary"
-              >
-                View on Hashnode
-              </a>
+              {post.source !== 'local' && (
+                <a
+                  href={`https://amanblog.hashnode.dev/${post.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary"
+                >
+                  View on Hashnode
+                </a>
+              )}
               <Link to="/blog" className="btn btn-primary">
                 More Articles
               </Link>
             </div>
-            
-            <p className="blog-post-attribution">
-              Originally published on{' '}
-              <a href="https://amanblog.hashnode.dev" target="_blank" rel="noopener noreferrer">
-                Hashnode
-              </a>
-            </p>
+
+            {post.source !== 'local' && (
+              <p className="blog-post-attribution">
+                Originally published on{' '}
+                <a href="https://amanblog.hashnode.dev" target="_blank" rel="noopener noreferrer">
+                  Hashnode
+                </a>
+              </p>
+            )}
           </footer>
         </article>
       </main>
